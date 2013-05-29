@@ -49,7 +49,7 @@
     [super viewDidAppear:animated];
 
     self.session = [[AVCaptureSession alloc] init];
-    self.session.sessionPreset = AVCaptureSessionPresetHigh;
+    self.session.sessionPreset = AVCaptureSessionPreset640x480;
     
     [self.session beginConfiguration];
     
@@ -70,9 +70,7 @@
     if ([self.session canAddOutput:self.audioOutput]) {
         [self.session addOutput:self.audioOutput];
     }
-    
-    
-    
+
     // video
     AVCaptureDevice *videoDevice = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo][0];
     AVCaptureDeviceInput *videoIn = [[AVCaptureDeviceInput alloc] initWithDevice:videoDevice error:&error];
@@ -91,22 +89,7 @@
     }
     
     AVCaptureConnection *connection = self.videoOutput.connections[0];
-    switch (self.interfaceOrientation) {
-        case UIInterfaceOrientationLandscapeLeft:
-            connection.videoOrientation = AVCaptureVideoOrientationLandscapeLeft;
-            break;
-        case UIInterfaceOrientationLandscapeRight:
-            connection.videoOrientation = AVCaptureVideoOrientationLandscapeRight;
-            break;
-        case UIInterfaceOrientationPortrait:
-            connection.videoOrientation = AVCaptureVideoOrientationPortrait;
-            break;
-        case UIInterfaceOrientationPortraitUpsideDown:
-            connection.videoOrientation = AVCaptureVideoOrientationPortraitUpsideDown;
-            break;
-        default:
-            break;
-    }
+    connection.videoOrientation = AVCaptureVideoOrientationPortrait;
     
     [self.session commitConfiguration];
     
@@ -136,11 +119,6 @@
 }
 
 #pragma mark - AVCaptureAudio/VideoDataOutputSampleBufferDelegate
-
-- (void)captureOutput:(AVCaptureOutput *)captureOutput didDropSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection
-{
-    
-}
 
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection
 {
