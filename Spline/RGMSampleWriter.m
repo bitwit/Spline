@@ -82,7 +82,7 @@
             }
         }
         
-        if (self.assetWriter.status != AVAssetWriterStatusWriting) {
+        if (self.assetWriter.status != AVAssetWriterStatusWriting && self.assetWriter.status != AVAssetWriterStatusFailed) {
             
             if (!(self.videoInput && self.audioInput)) {
                 return;
@@ -119,6 +119,10 @@
 - (void)finish:(void (^)())completion
 {
     dispatch_async(_movieWritingQueue, ^{
+        if (self.assetWriter.status == AVAssetWriterStatusUnknown)    {
+            dispatch_async(dispatch_get_main_queue(), completion);
+            return;
+        }
         [self.assetWriter finishWritingWithCompletionHandler:^{
             if (self.assetWriter.status == AVAssetWriterStatusFailed) {
                 NSLog(@"error finishing: %@", self.assetWriter.error);
