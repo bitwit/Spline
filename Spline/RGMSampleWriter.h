@@ -14,6 +14,9 @@
 @property (nonatomic, readonly) NSURL *URL;
 
 - (void)appendSampleBuffer:(CMSampleBufferRef)sampleBuffer mediaType:(NSString *)mediaType;
+
+- (void)pauseWriting;
+
 - (void)finish:(void (^)())completion;
 
 @end
