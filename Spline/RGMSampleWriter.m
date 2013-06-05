@@ -12,7 +12,7 @@
 @property(nonatomic, strong) AVAssetWriter *assetWriter;
 @property(nonatomic, strong) AVAssetWriterInput *videoInput;
 @property(nonatomic, strong) AVAssetWriterInput *audioInput;
-@property(nonatomic) CMTime lastSampleEndTime;
+@property(nonatomic, strong) NSString *queueName;
 @end
 
 @implementation RGMSampleWriter {
@@ -23,6 +23,7 @@
     NSParameterAssert(URL);
     if (self = [super init]) {
         _URL = URL;
+        self.queueName = [[NSUUID UUID] UUIDString];
     }
 
     return self;
@@ -32,7 +33,7 @@
     NSParameterAssert(sampleBuffer);
 
     if (_movieWritingQueue == NULL) {
-        _movieWritingQueue = dispatch_queue_create("com.rydermackay.movieWritingQueue", DISPATCH_QUEUE_SERIAL);
+        _movieWritingQueue = dispatch_queue_create([self.queueName UTF8String], DISPATCH_QUEUE_SERIAL);
     }
 
     CFRetain(sampleBuffer);
@@ -111,11 +112,6 @@
                 }
             }
         }
-
-        self.lastSampleEndTime = CMTimeAdd(
-                CMSampleBufferGetPresentationTimeStamp(sampleBuffer),
-                CMSampleBufferGetDuration(sampleBuffer)
-        );
 
         CFRelease(sampleBuffer);
     });

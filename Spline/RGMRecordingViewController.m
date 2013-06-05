@@ -7,6 +7,7 @@
 //
 
 #import <CoreMedia/CoreMedia.h>
+#import <Foundation/Foundation.h>
 #import "RGMRecordingViewController.h"
 #import "RGMSampleWriter.h"
 
@@ -43,6 +44,11 @@ typedef enum{
 @property(nonatomic, strong) UIView *frontCameraView;
 @property(nonatomic) CameraInputType currentVideoInputType;
 
+@property(nonatomic) CMTime sampleDuration;
+
+@property(nonatomic, strong) NSMutableArray *oldSampleWriters;
+
+
 - (IBAction)flipCamera;
 
 @end
@@ -58,6 +64,9 @@ typedef enum{
     self.progressView.hidden = YES;
     self.currentVideoLength = 0;
     self.maxVideoLength = 9;
+
+    self.oldSampleWriters = [NSMutableArray array];
+
     [self.view addSubview:self.progressView];
 }
 
@@ -144,7 +153,7 @@ typedef enum{
     [self.session removeInput:self.videoInput];
 
     NSError *error;
-    NSUInteger newInput = 1 - self.currentVideoInputType; //works like a boolean switch to flip between cameras
+    NSUInteger newInput = 1 - (NSUInteger)self.currentVideoInputType; //works like a boolean switch to flip between cameras
     AVCaptureDevice *videoDevice = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo][newInput];
     self.videoInput = [[AVCaptureDeviceInput alloc] initWithDevice:videoDevice error:&error];
     if (!self.videoInput) {
@@ -168,9 +177,11 @@ typedef enum{
     if (!self.isRecording) {
         return;
     }
-    CMTime length = CMSampleBufferGetDuration(sampleBuffer);
-    double seconds = CMTimeGetSeconds(length);
-    if (length.timescale != 0 && length.value != 0) {
+    CMTime duration = CMSampleBufferGetDuration(sampleBuffer);
+    self.sampleDuration = duration;
+    double seconds = CMTimeGetSeconds(duration);
+    if (duration.timescale != 0 && duration.value != 0) {
+        NSLog(@" sample duration %f", seconds);
         self.currentVideoLength += seconds;
         [self performSelectorOnMainThread:@selector(updateProgress) withObject:nil waitUntilDone:NO];
     }
@@ -216,13 +227,40 @@ typedef enum{
     AVMutableComposition *composition = [AVMutableComposition composition];
     CMTime insertPoint = kCMTimeZero;
 
+    AVMutableCompositionTrack *videoTrack = [composition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
+    AVMutableCompositionTrack *audioTrack = [composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+
     for (NSURL *URL in URLs) {
         AVURLAsset *asset = [[AVURLAsset alloc] initWithURL:URL options:@{AVURLAssetPreferPreciseDurationAndTimingKey : @YES}];
+
+        CMTime duration;
+        if (CMTimeGetSeconds(asset.duration) <= CMTimeGetSeconds(self.sampleDuration)){
+            duration = asset.duration;
+
+        } else {
+            duration = CMTimeSubtract(asset.duration, self.sampleDuration); //remove last sample
+        }
+
+        AVAssetTrack *assetVideoTrack;
+        AVAssetTrack *assetAudioTrack;
+        @try{
+            assetVideoTrack = [[asset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0];
+            assetAudioTrack = [[asset tracksWithMediaType:AVMediaTypeAudio] objectAtIndex:0];
+        }
+        @catch(NSException *e){
+            NSLog(@"Error getting asset tracks");
+            continue;
+        }
+
         NSError *error;
-        if (![composition insertTimeRange:CMTimeRangeMake(kCMTimeZero, asset.duration) ofAsset:asset atTime:insertPoint error:&error]) {
+        if (![videoTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, duration) ofTrack:assetVideoTrack atTime:insertPoint error:&error]) {
+            NSLog(@"error inserting track: %@", error);
+        }
+
+        if (![audioTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, duration) ofTrack:assetAudioTrack atTime:insertPoint error:&error]) {
             NSLog(@"error inserting track: %@", error);
         } else {
-            insertPoint = CMTimeAdd(insertPoint, asset.duration);
+            insertPoint = CMTimeAdd(insertPoint, duration);
         }
     }
 
@@ -277,11 +315,16 @@ typedef enum{
 - (void)stopRecording {
     self.recording = NO;
     self.ready = NO;
+
+    RGMSampleWriter *writerReference = self.sampleWriter;
     [self.sampleWriter finish:^{
-        [self.URLs addObject:self.sampleWriter.URL];
+        [self.URLs addObject:writerReference.URL];
         self.ready = YES;
-        self.sampleWriter = nil;
+        [self.oldSampleWriters removeObject:writerReference];
     }];
+
+    [self.oldSampleWriters addObject:writerReference];
+    self.sampleWriter = nil;
 }
 
 @end
