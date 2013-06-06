@@ -8,6 +8,7 @@
 
 #import <CoreMedia/CoreMedia.h>
 #import <Foundation/Foundation.h>
+#import <AssetsLibrary/AssetsLibrary.h>
 #import "RGMRecordingViewController.h"
 #import "RGMSampleWriter.h"
 
@@ -34,6 +35,8 @@ typedef enum{
 * Added by KGN
 * */
 
+
+@property(nonatomic) BOOL isRecordingComplete;
 @property(nonatomic, strong) AVCaptureDeviceInput *videoInput;
 @property(nonatomic) double currentVideoLength;
 @property(nonatomic) double maxVideoLength;
@@ -131,6 +134,7 @@ typedef enum{
     AVCaptureVideoPreviewLayer *layer = [AVCaptureVideoPreviewLayer layerWithSession:self.session];
     layer.frame = self.previewView.layer.bounds;
     [self.previewView.layer insertSublayer:layer atIndex:0];
+    self.ready = YES;
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
@@ -181,7 +185,6 @@ typedef enum{
     self.sampleDuration = duration;
     double seconds = CMTimeGetSeconds(duration);
     if (duration.timescale != 0 && duration.value != 0) {
-        NSLog(@" sample duration %f", seconds);
         self.currentVideoLength += seconds;
         [self performSelectorOnMainThread:@selector(updateProgress) withObject:nil waitUntilDone:NO];
     }
@@ -199,7 +202,7 @@ typedef enum{
     }
 
     if (self.currentVideoLength >= self.maxVideoLength) {
-        self.recording = NO;
+        [self stopRecording];
         [self stop:nil];
     }
 }
@@ -208,7 +211,6 @@ typedef enum{
     float progress = (float) (self.currentVideoLength / self.maxVideoLength);
     if (progress > 1)
         progress = 1;
-    NSLog(@"Setting progress %f", progress);
     [self.lengthView setProgress:progress];
 }
 
@@ -219,7 +221,14 @@ typedef enum{
         return;
     }
 
+    self.isRecordingComplete = YES;
+
     [self.session stopRunning];
+
+    if([self.URLs count] == 0){
+        [self dismissViewControllerAnimated:YES completion:nil];
+    }
+
     [self composeAssetsFromURLs:self.URLs];
 }
 
@@ -227,53 +236,73 @@ typedef enum{
     AVMutableComposition *composition = [AVMutableComposition composition];
     CMTime insertPoint = kCMTimeZero;
 
-    AVMutableCompositionTrack *videoTrack = [composition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
-    AVMutableCompositionTrack *audioTrack = [composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+    //AVMutableCompositionTrack *videoTrack = [composition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
+    //AVMutableCompositionTrack *audioTrack = [composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+
+    NSUInteger clipCount = [URLs count];
+    NSUInteger failureCount = 0;
 
     for (NSURL *URL in URLs) {
+
+        NSLog(@"Appending track %@ at %f", [URL lastPathComponent], CMTimeGetSeconds(insertPoint));
+
         AVURLAsset *asset = [[AVURLAsset alloc] initWithURL:URL options:@{AVURLAssetPreferPreciseDurationAndTimingKey : @YES}];
+
+        NSFileManager *fileManager = [NSFileManager defaultManager];
+        NSLog(@"Asset exists? -> %d", ([fileManager fileExistsAtPath:[URL path]]));
+
 
         CMTime duration;
         if (CMTimeGetSeconds(asset.duration) <= CMTimeGetSeconds(self.sampleDuration)){
             duration = asset.duration;
-
         } else {
             duration = CMTimeSubtract(asset.duration, self.sampleDuration); //remove last sample
-        }
-
-        AVAssetTrack *assetVideoTrack;
-        AVAssetTrack *assetAudioTrack;
-        @try{
-            assetVideoTrack = [[asset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0];
-            assetAudioTrack = [[asset tracksWithMediaType:AVMediaTypeAudio] objectAtIndex:0];
-        }
-        @catch(NSException *e){
-            NSLog(@"Error getting asset tracks");
-            continue;
-        }
+       }
 
         NSError *error;
-        if (![videoTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, duration) ofTrack:assetVideoTrack atTime:insertPoint error:&error]) {
+        if (![composition insertTimeRange:CMTimeRangeMake(kCMTimeZero, duration) ofAsset:asset atTime:insertPoint error:&error]) {
             NSLog(@"error inserting track: %@", error);
-        }
-
-        if (![audioTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, duration) ofTrack:assetAudioTrack atTime:insertPoint error:&error]) {
-            NSLog(@"error inserting track: %@", error);
+            failureCount++;
         } else {
             insertPoint = CMTimeAdd(insertPoint, duration);
         }
     }
 
+    NSLog(@"Failure count -> %d", failureCount);
+    if(failureCount >= clipCount){
+        NSLog(@"Failed to combine clips -- count: %d", failureCount);
+        UIAlertView *errorAlert = [[UIAlertView alloc] initWithTitle:@"Error processing video" message:@"There was an error processing the video" delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil];
+        [errorAlert show];
+    }
+
+
     NSString *filename = [[[NSUUID UUID] UUIDString] stringByAppendingPathExtension:@"mp4"];
     NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
     NSURL *URL = [NSURL fileURLWithPath:[docs stringByAppendingPathComponent:filename]];
 
-    self.exportSession = [AVAssetExportSession exportSessionWithAsset:composition presetName:AVAssetExportPresetHighestQuality];
+    self.exportSession = [AVAssetExportSession exportSessionWithAsset:composition presetName:AVAssetExportPresetMediumQuality];
+    self.exportSession.shouldOptimizeForNetworkUse = YES;
     self.exportSession.outputFileType = AVFileTypeMPEG4;
     self.exportSession.outputURL = URL;
     [self.exportSession exportAsynchronouslyWithCompletionHandler:^{
+        NSLog(@"Export Session Completion");
         dispatch_async(dispatch_get_main_queue(), ^{
+            NSLog(@"Dismissing Recording VC");
             [self dismissViewControllerAnimated:YES completion:nil];
+
+            ALAssetsLibrary *library = [[ALAssetsLibrary alloc] init];
+            [library writeVideoAtPathToSavedPhotosAlbum:URL completionBlock:^(NSURL *assetURL, NSError *error) {
+                if (error) {
+                    NSLog(@"ERROR: the video failed to be written %@", [error description]);
+                }
+                else {
+                    NSLog(@"Video SAVED - assetURL: %@", assetURL);
+                }
+            }];
+
+            if(self.delegate != nil && [self.delegate respondsToSelector:@selector(recordingViewControllerDidCompleteWithURL:)]){
+                [self.delegate recordingViewControllerDidCompleteWithURL:URL];
+            }
         });
     }];
 
@@ -284,6 +313,7 @@ typedef enum{
     switch (exportSession.status) {
         case AVAssetExportSessionStatusWaiting:
         case AVAssetExportSessionStatusExporting:
+            NSLog(@"Exporting Session progress -- %f", exportSession.progress);
             self.progressView.hidden = NO;
             [self.progressView setProgress:exportSession.progress animated:YES];
             [self performSelector:@selector(showProgressWithSession:) withObject:exportSession afterDelay:0.1 inModes:@[NSRunLoopCommonModes]];
@@ -297,6 +327,9 @@ typedef enum{
 #pragma mark - UIResponder
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
+
+    if(self.isRecordingComplete && self.ready) return;
+
     self.recording = YES;
 }
 
@@ -305,25 +338,29 @@ typedef enum{
 }
 
 - (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event {
+    if(self.isRecordingComplete) return;
     [self stopRecording];
 }
 
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event {
+    if(self.isRecordingComplete) return;
     [self stopRecording];
 }
 
 - (void)stopRecording {
+
+    if(!self.ready || self.sampleWriter == nil) return;
+
     self.recording = NO;
     self.ready = NO;
 
     RGMSampleWriter *writerReference = self.sampleWriter;
+    [self.oldSampleWriters addObject:writerReference];
     [self.sampleWriter finish:^{
         [self.URLs addObject:writerReference.URL];
         self.ready = YES;
         [self.oldSampleWriters removeObject:writerReference];
     }];
-
-    [self.oldSampleWriters addObject:writerReference];
     self.sampleWriter = nil;
 }
 

@@ -8,6 +8,12 @@
 
 #import <UIKit/UIKit.h>
 
+@protocol RGMRecordingViewControllerDelegate <NSObject>
+-(void)recordingViewControllerDidCompleteWithURL:(NSURL *)fileUrl;
+@end
+
 @interface RGMRecordingViewController : UIViewController
+
+@property (nonatomic, weak) id<RGMRecordingViewControllerDelegate>delegate;
 
 @end

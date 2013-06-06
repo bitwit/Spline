@@ -6,13 +6,13 @@
 //  Copyright (c) 2013 Ryder Mackay. All rights reserved.
 //
 
+#import <CoreAudio/CoreAudioTypes.h>
 #import "RGMSampleWriter.h"
 
 @interface RGMSampleWriter ()
 @property(nonatomic, strong) AVAssetWriter *assetWriter;
 @property(nonatomic, strong) AVAssetWriterInput *videoInput;
 @property(nonatomic, strong) AVAssetWriterInput *audioInput;
-@property(nonatomic, strong) NSString *queueName;
 @end
 
 @implementation RGMSampleWriter {
@@ -23,7 +23,6 @@
     NSParameterAssert(URL);
     if (self = [super init]) {
         _URL = URL;
-        self.queueName = [[NSUUID UUID] UUIDString];
     }
 
     return self;
@@ -33,7 +32,7 @@
     NSParameterAssert(sampleBuffer);
 
     if (_movieWritingQueue == NULL) {
-        _movieWritingQueue = dispatch_queue_create([self.queueName UTF8String], DISPATCH_QUEUE_SERIAL);
+        _movieWritingQueue = dispatch_queue_create("com.rydermackay.movieWritingQueue", DISPATCH_QUEUE_SERIAL);
     }
 
     CFRetain(sampleBuffer);
@@ -49,7 +48,18 @@
         }
 
         if (!self.audioInput && mediaType == AVMediaTypeAudio) {
-            NSDictionary *outputSettings = @{AVFormatIDKey : @(kAudioFormatMPEG4AAC)};
+            //AudioChannelLayout channelLayout;
+            //memset(&channelLayout, 0, sizeof(AudioChannelLayout));
+            //channelLayout.mChannelLayoutTag = kAudioChannelLayoutTag_Mono;
+
+            NSDictionary *outputSettings = @{
+                    AVFormatIDKey : @(kAudioFormatMPEG4AAC),
+                  //  AVSampleRateKey : @22050.0,
+                  //  AVNumberOfChannelsKey: @1,
+                  //  AVEncoderBitRateKey: @64000,
+                  //  AVChannelLayoutKey: [NSData dataWithBytes:&channelLayout length:sizeof(AudioChannelLayout)]
+            };
+
             self.audioInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeAudio
                                                                  outputSettings:outputSettings
                                                                sourceFormatHint:CMSampleBufferGetFormatDescription(sampleBuffer)];
@@ -66,7 +76,9 @@
         }
 
         if (!self.videoInput && mediaType == AVMediaTypeVideo) {
-            NSDictionary *outputSettings = @{AVVideoCodecKey : AVVideoCodecH264};
+            NSDictionary *outputSettings = @{
+                    AVVideoCodecKey : AVVideoCodecH264,
+            };
             if ([self.assetWriter canApplyOutputSettings:outputSettings forMediaType:AVMediaTypeVideo]) {
                 self.videoInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo
                                                                      outputSettings:outputSettings

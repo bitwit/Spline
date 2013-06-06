@@ -33,6 +33,7 @@
 		0DA94AED173F5D5A001651DA /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0DA94AEC173F5D5A001651DA /* CoreAudio.framework */; };
 		0DA94AF017403B49001651DA /* RGMPlayerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 0DA94AEF17403B49001651DA /* RGMPlayerViewController.m */; };
 		0DAE68D71745BA5A00127F5D /* MainStoryboard.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 0DAE68D61745BA5A00127F5D /* MainStoryboard.storyboard */; };
+		7510C8621760FFC600DCC5CA /* AssetsLibrary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7510C8611760FFC600DCC5CA /* AssetsLibrary.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -73,6 +74,7 @@
 		0DA94AEE17403B49001651DA /* RGMPlayerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RGMPlayerViewController.h; sourceTree = "<group>"; };
 		0DA94AEF17403B49001651DA /* RGMPlayerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RGMPlayerViewController.m; sourceTree = "<group>"; };
 		0DAE68D61745BA5A00127F5D /* MainStoryboard.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = MainStoryboard.storyboard; sourceTree = "<group>"; };
+		7510C8611760FFC600DCC5CA /* AssetsLibrary.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AssetsLibrary.framework; path = System/Library/Frameworks/AssetsLibrary.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -80,6 +82,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7510C8621760FFC600DCC5CA /* AssetsLibrary.framework in Frameworks */,
 				0D41FBFD17429D4C001DFB53 /* CoreImage.framework in Frameworks */,
 				0D41FBFB17429D44001DFB53 /* OpenGLES.framework in Frameworks */,
 				0D41FBF917429D3F001DFB53 /* GLKit.framework in Frameworks */,
@@ -101,6 +104,7 @@
 		0DA94AAB173F2BD6001651DA = {
 			isa = PBXGroup;
 			children = (
+				7510C8611760FFC600DCC5CA /* AssetsLibrary.framework */,
 				0DA94ABD173F2BD6001651DA /* Spline */,
 				0DA94AB6173F2BD6001651DA /* Frameworks */,
 				0DA94AB5173F2BD6001651DA /* Products */,
