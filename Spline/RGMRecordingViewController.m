@@ -59,6 +59,10 @@ typedef enum{
 
 @implementation RGMRecordingViewController
 
+-(void)dealloc{
+    BWLog(@"DEALLOCATING");
+}
+
 - (void)viewDidLoad {
     [super viewDidLoad];
 
@@ -141,7 +145,6 @@ typedef enum{
     [super viewDidDisappear:animated];
 
     [self.session stopRunning];
-    self.session = nil;
 }
 
 - (void)viewDidLayoutSubviews {

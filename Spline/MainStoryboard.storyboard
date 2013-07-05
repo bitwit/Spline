@@ -221,7 +221,7 @@
         <class className="RGMCollectionViewCell" superclassName="UICollectionViewCell">
             <source key="sourceIdentifier" type="project" relativePath="./Classes/RGMCollectionViewCell.h"/>
             <relationships>
-                <relationship kind="outlet" name="imageView" candidateClass="UIImageView"/>
+                <relationship kind="outlet" name="lockImageView" candidateClass="UIImageView"/>
             </relationships>
         </class>
         <class className="RGMGLPlayerViewController" superclassName="UIViewController">
